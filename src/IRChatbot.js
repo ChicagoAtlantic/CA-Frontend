@@ -12,8 +12,8 @@ export default function IRChatbot() {
     e.preventDefault();
     setLoading(true);
     try {
-      // const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
-      const res = await axios.post('http://localhost:8000/query', { query });
+      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
+      // const res = await axios.post('http://localhost:8000/query', { query }); for local run
 
       if (res.data.answers) {
         setResponse(res.data.answers); // multiple funds
