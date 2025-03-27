@@ -1,3 +1,5 @@
+// npm start
+
 import { useState } from 'react';
 import axios from 'axios';
 
@@ -10,14 +12,16 @@ export default function IRChatbot() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
+      // const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
+      const res = await axios.post('http://localhost:8000/query', { query });
 
       if (res.data.answers) {
         setResponse(res.data.answers); // multiple funds
       } else {
-        setResponse({ Default: res.data.answer }); // wrap single answer in object
+        setResponse({ Default: res.data.answer }); // fallback
       }
     } catch (err) {
+      console.error('❌ Axios error:', err);
       setResponse({ Error: 'Error fetching response.' });
     } finally {
       setLoading(false);
@@ -32,10 +36,16 @@ export default function IRChatbot() {
         <textarea
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
           placeholder="Hello, how can I help?"
           rows={4}
           className="w-full border p-2 rounded resize-y"
-          />
+        />
         <button
           type="submit"
           className="mt-2 bg-blue-600 text-white px-4 py-2 rounded"
