@@ -1,5 +1,4 @@
 // npm start
-
 import { useState } from 'react';
 import axios from 'axios';
 
@@ -12,8 +11,9 @@ export default function IRChatbot() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
-      // const res = await axios.post('http://localhost:8000/query', { query }); for local run
+      // Change the URL based on local or render
+      // const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query });
+      const res = await axios.post('http://localhost:8000/query', { query }); // for local run
 
       if (res.data.answers) {
         setResponse(res.data.answers); // multiple funds
@@ -29,10 +29,22 @@ export default function IRChatbot() {
   };
 
   return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Chicago Atlantic Informational Chatbot</h1>
+    <div className="min-h-screen flex flex-col items-center bg-gray-50 p-6">
+      {/* Company Logo */}
+      <div className="mb-6">
+      <img
+      src="/CA Logo.png"
+      alt="Chicago Atlantic Logo"
+      style={{ height: '200px', width: 'auto' }}  // Inline styling for custom size
+    />
 
-      <form onSubmit={handleSubmit} className="mb-4">
+      </div>
+
+      <h1 className="text-4xl font-bold text-center text-blue-800 mb-6">
+        Chicago Atlantic Informational Chatbot
+      </h1>
+
+      <form onSubmit={handleSubmit} className="mb-6 w-full max-w-lg">
         <textarea
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -44,27 +56,28 @@ export default function IRChatbot() {
           }}
           placeholder="Hello, how can I help?"
           rows={4}
-          className="w-full border p-2 rounded resize-y"
+          className="w-full border rounded-lg p-3 text-lg resize-none text-gray-700"
         />
         <button
           type="submit"
-          className="mt-2 bg-blue-600 text-white px-4 py-2 rounded"
+          className="w-full mt-4 bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700"
           disabled={loading}
         >
           {loading ? 'Thinking...' : 'Ask'}
         </button>
       </form>
 
-      <div className="bg-gray-100 p-4 rounded shadow mt-4">
-        <strong>Response:</strong>
+      {/* Response Section */}
+      <div className="w-full max-w-lg bg-white p-6 rounded-lg shadow-lg">
+        <strong className="text-xl mb-2">Response:</strong>
         {loading ? (
           <p className="italic text-gray-500">Generating answer...</p>
         ) : response && typeof response === 'object' ? (
           Object.entries(response).map(([fund, answer]) => (
-            <div key={fund} className="mb-4 border-b border-gray-300 pb-2">
-              <h2 className="font-semibold text-lg text-blue-700 mb-1">{fund}</h2>
-              <p className="text-sm text-gray-500 mb-1">📄 Source: {answer.source}</p>
-              <p>{answer.answer}</p>
+            <div key={fund} className="mb-6 border-b border-gray-300 pb-4">
+              <h2 className="font-semibold text-lg text-blue-700 mb-2">{fund}</h2>
+              <p className="text-sm text-gray-500 mb-2">📄 Source: {answer.source}</p>
+              <p className="text-gray-800">{answer.answer}</p>
             </div>
           ))
         ) : (
