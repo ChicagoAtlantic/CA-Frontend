@@ -58,12 +58,12 @@ export default function IRChatbot() {
           placeholder="Hello, how can I help?"
           rows={4}
           className="w-full border rounded-lg p-3 text-lg resize-none text-gray-700 font-sans" // Font change here
-          style={{ height: '50px', width: '19.4%', fontSize: '1.125rem'}}  // Adjust width and height (width in percentage)
+          style={{ height: '50px', width: '19.4%', fontSize:''}}  // Adjust width and height (width in percentage)
         />
         <button
           type="submit"
           className="w-full mt-4 bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700"
-          style={{ height: '25px', width: '2.5%' }}  // Adjust width and height (width in percentage)
+          // style={{ height: '25px', width:'3%' }}  // Adjust width and height (width in percentage)
           disabled={loading}
         >
           {loading ? 'Thinking...' : 'Ask'}
