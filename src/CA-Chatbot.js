@@ -15,7 +15,8 @@ export default function IRChatbot() {
     setQuery('');
 
     try {
-      const res = await axios.post('http://localhost:8000/query', { query: currentQuery });
+      // const res = await axios.post('http://localhost:8000/query', { query: currentQuery });
+      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query: currentQuery });
       const responseObj = res.data.answers || { Default: res.data.answer };
       setChatHistory((prev) => [...prev, { query: currentQuery, response: responseObj }]);
     } catch (err) {
