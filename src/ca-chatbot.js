@@ -92,16 +92,16 @@ export default function IRChatbot() {
         gap: '1rem',
         height: '700px'
       }}>
-
+  
         {/* Logo */}
         <div style={{ textAlign: 'center' }}>
           <img
             src="/CA Logo narrow.png"
             alt="Chicago Atlantic Logo"
-            style={{ height: '80px', maxWidth: '120px', display: 'block', marginLeft: 'auto', marginRight: 'auto' }}
+            style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }}
           />
         </div>
-
+  
         {/* Heading */}
         <h1 style={{
           fontSize: '1.875rem',
@@ -112,8 +112,8 @@ export default function IRChatbot() {
         }}>
           Chicago Atlantic Chatbot
         </h1>
-
-        {/* Download and Clear Buttons */}
+  
+        {/* Buttons */}
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <button
             onClick={handleDownloadChatLogs}
@@ -126,8 +126,6 @@ export default function IRChatbot() {
               border: 'none',
               cursor: 'pointer'
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = 'green'}
-            onMouseOut={(e) => e.target.style.backgroundColor = 'green'}
           >
             Download Chat Logs
           </button>
@@ -142,14 +140,52 @@ export default function IRChatbot() {
               border: 'none',
               cursor: 'pointer'
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#dc2626'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#ef4444'}
           >
             Clear Chat
           </button>
         </div>
-
-        {/* Chat Window */}
+  
+        {/* Ask box */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <textarea
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            rows={2}
+            placeholder="Ask a question..."
+            style={{
+              width: '100%',
+              border: '1px solid #d1d5db',
+              borderRadius: '0.5rem',
+              padding: '0.5rem',
+              fontSize: '0.875rem',
+              resize: 'none'
+            }}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              backgroundColor: '#2563eb',
+              color: 'white',
+              padding: '0.5rem',
+              borderRadius: '0.5rem',
+              border: 'none',
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              opacity: loading ? 0.5 : 1
+            }}
+          >
+            {loading ? 'Thinking...' : 'Ask'}
+          </button>
+        </form>
+  
+        {/* Scrollable Chat History */}
         <div style={{
           border: '1px solid #d1d5db',
           backgroundColor: '#f9fafb',
@@ -158,71 +194,26 @@ export default function IRChatbot() {
           flexDirection: 'column',
           height: '100%',
           overflowY: 'auto',
-          padding: '1rem',
-          marginTop: '1rem'
+          padding: '1rem'
         }}>
-          {/* Input Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }
-              }}
-              rows={2}
-              placeholder="Ask a question..."
-              style={{
-                width: '95%',
-                border: '1px solid #d1d5db',
-                borderRadius: '0.5rem',
-                padding: '0.5rem',
-                fontSize: '0.875rem',
-                resize: 'none'
-              }}
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                backgroundColor: '#2563eb',
-                color: 'white',
-                padding: '0.5rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                opacity: loading ? 0.5 : 1
-              }}
-            >
-              {loading ? 'Thinking...' : 'Ask'}
-            </button>
-          </form>
-
-          {/* Chat History */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {chatHistory.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#9ca3af', fontStyle: 'italic' }}>No messages yet</p>
-            ) : (
-              chatHistory.map((item, index) => (
-                <div key={index} style={{ textAlign: 'left', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
-                  <span style={{ fontWeight: 'bold', color: item.sender === 'User' ? '#1d4ed8' : '#047857' }}>
-                    {item.sender}
-                  </span> {' '}
-                  <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                    [{item.time}]
-                  </span>: {' '}
-                  {item.text}
-                </div>
-              ))
-            )}
-            <div ref={chatEndRef} />
-          </div>
-
+          {chatHistory.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#9ca3af', fontStyle: 'italic' }}>No messages yet</p>
+          ) : (
+            chatHistory.map((item, index) => (
+              <div key={index} style={{ textAlign: 'left', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
+                <span style={{ fontWeight: 'bold', color: item.sender === 'User' ? '#1d4ed8' : '#047857' }}>
+                  {item.sender}
+                </span>{' '}
+                <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                  [{item.time}]
+                </span>: {' '}
+                {item.text}
+              </div>
+            ))
+          )}
+          <div ref={chatEndRef} />
         </div>
       </div>
     </div>
   );
-}
+}  
