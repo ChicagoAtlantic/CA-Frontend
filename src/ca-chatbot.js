@@ -62,7 +62,7 @@ export default function IRChatbot() {
   }, [chatHistory]);
 
   return (
-    <div style={{ width: '95%', maxWidth: '600px', margin: '2rem auto' }}>
+    <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
       <div style={{
         backgroundColor: 'white',
         padding: '1.5rem',
