@@ -19,7 +19,9 @@ export default function IRChatbot() {
     setQuery('');
 
     try {
-      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query: currentQuery });
+      // const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query: currentQuery });
+      const res = await axios.post('http://localhost:8000/query', { query: currentQuery });
+
       const responseObj = res.data.answers || { Default: res.data.answer };
 
       let botResponse = '';
@@ -48,9 +50,24 @@ export default function IRChatbot() {
     }
   };
 
-  const handleDownloadChatLogs = () => {
-    window.open('https://ir-backend-pov2.onrender.com/download_chat_logs', '_blank');
+  const handleDownloadChatLogs = async () => {
+    try {
+      const res = await axios.get('https://ir-backend-pov2.onrender.com/download_chat_logs', {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'chat_logs.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Failed to download chat logs.');
+    }
   };
+  
 
   const handleClearChat = () => {
     setChatHistory([]);
