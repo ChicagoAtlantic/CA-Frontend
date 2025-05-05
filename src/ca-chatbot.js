@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+
 
 export default function IRChatbot() {
   const [query, setQuery] = useState('');
@@ -15,12 +17,11 @@ export default function IRChatbot() {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setLoading(true);
 
-    setChatHistory(prev => [...prev, { sender: 'User', text: currentQuery, time: timestamp }, { sender: 'Chatbot', text: 'Thinking...', time: timestamp }]);
+    setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: currentQuery, time: timestamp }, { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }]);
     setQuery('');
 
     try {
-      const res = await axios.post('https://ir-backend-pov2.onrender.com/query', { query: currentQuery });
-      // const res = await axios.post('http://localhost:8000/query', { query: currentQuery });
+      const res = await axios.post('https://ir-backend-pov2.onrender.com/query','http://localhost:8000/query', { query: currentQuery });
 
       const responseObj = res.data.answers || { Default: res.data.answer };
 
@@ -34,7 +35,7 @@ export default function IRChatbot() {
 
       setChatHistory(prev => {
         const updated = [...prev];
-        updated[updated.length - 1] = { sender: 'Chatbot', text: botResponse.trim(), time: timestamp };
+        updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
         return updated;
       });
 
@@ -42,7 +43,7 @@ export default function IRChatbot() {
       console.error('❌ Axios error:', err);
       setChatHistory(prev => {
         const updated = [...prev];
-        updated[updated.length - 1] = { sender: 'Chatbot', text: 'Error fetching response.', time: timestamp };
+        updated[updated.length - 1] = { sender: 'ChatCAG', text: 'Error fetching response.', time: timestamp };
         return updated;
       });
     } finally {
@@ -77,6 +78,85 @@ export default function IRChatbot() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+  
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+  
+      const questions = json.slice(1).map(row => row[0]).filter(q => q); // skip header and empty rows
+  
+      for (const question of questions) {
+        await submitQuestion(question);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  
+  const submitQuestion = async (text) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text, time: timestamp }, { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }]);
+  
+    try {
+      const res = await axios.post('http://localhost:8000/query', { query: text });
+      const responseObj = res.data.answers || { Default: res.data.answer };
+  
+      let botResponse = '';
+      for (const [fund, answer] of Object.entries(responseObj)) {
+        botResponse += `${fund}:\n${answer.answer || answer}\n`;
+        if (answer.source) botResponse += `📄 Source: ${answer.source}\n`;
+      }
+  
+      setChatHistory(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
+        return updated;
+      });
+    } catch (err) {
+      console.error('❌ Axios error:', err);
+      setChatHistory(prev => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { sender: 'ChatCAG', text: 'Error fetching response.', time: timestamp };
+        return updated;
+      });
+    }
+  };
+  
+
+  const handleDownloadAnswers = async () => {
+    const fileInput = document.getElementById("excel-upload");
+    const file = fileInput.files[0];
+    if (!file) return alert("Please upload an Excel file first.");
+  
+    const formData = new FormData();
+    formData.append("file", file);
+  
+    try {
+      const res = await axios.post("http://localhost:8000/upload_questions/", formData, {
+        responseType: "blob",
+      });
+  
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "question_answers.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Download Answers error:", err);
+      alert("Failed to download answers.");
+    }
+  };
+  
+
 
   return (
     <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
@@ -118,13 +198,16 @@ export default function IRChatbot() {
           <button
             onClick={handleDownloadChatLogs}
             style={{
-              backgroundColor: 'green',
+              display: 'inline-block',
+              backgroundColor: '#000000',
               color: 'white',
               padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               border: 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              marginBottom: '1rem',
+              width: '160px',   // <-- force equal width
             }}
           >
             Download Chat Logs
@@ -132,19 +215,71 @@ export default function IRChatbot() {
           <button
             onClick={handleClearChat}
             style={{
-              backgroundColor: '#ef4444',
+              display: 'inline-block',
+              backgroundColor: '#000000',
               color: 'white',
               padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
               fontSize: '0.875rem',
               border: 'none',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              marginBottom: '1rem',
+              width: '160px',   // <-- force equal width
             }}
+
           >
             Clear Chat
           </button>
         </div>
   
+        {/* Upload & Download Excel file buttons */}
+        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          <label
+            htmlFor="excel-upload"
+            style={{
+              display: 'inline-block',
+              backgroundColor: '#000000',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+              border: 'none',
+              cursor: 'pointer',
+              marginBottom: '1rem',
+              width: '160px'
+            }}
+          >
+            Upload Questions File
+          </label>
+          <button
+            onClick={handleDownloadAnswers}
+            style={{
+              display: 'inline-block',
+              backgroundColor: '#000000',
+              color: 'white',
+              padding: '0.5rem 1rem',
+              borderRadius: '0.5rem',
+              fontSize: '0.875rem',
+              border: 'none',
+              cursor: 'pointer',
+              marginBottom: '1rem',
+              width: '160px'
+            }}
+          >
+            Download Answers
+          </button>
+          <input
+            id="excel-upload"
+            type="file"
+            accept=".xlsx"
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+        </div>
+
+
+
+
         {/* Ask box */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
@@ -201,7 +336,7 @@ export default function IRChatbot() {
           ) : (
             chatHistory.map((item, index) => (
               <div key={index} style={{ textAlign: 'left', fontSize: '0.875rem', whiteSpace: 'pre-wrap' }}>
-                <span style={{ fontWeight: 'bold', color: item.sender === 'User' ? '#1d4ed8' : '#047857' }}>
+                <span style={{ fontWeight: 'bold', color: item.sender === 'A Brilliant User' ? '#1d4ed8' : '#047857' }}>
                   {item.sender}
                 </span>{' '}
                 <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
