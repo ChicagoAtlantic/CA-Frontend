@@ -11,6 +11,7 @@ export default function IRChatbot() {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +30,8 @@ export default function IRChatbot() {
 
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:\n${answer.answer || answer}\n`;
+        botResponse += `${fund}:
+${answer.answer || answer}\n`;
         if (answer.source) {
           botResponse += `📄 Source: ${answer.source}\n`;
         }
@@ -82,22 +84,59 @@ export default function IRChatbot() {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    setUploadedFile(file);
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    const isExcel = file.name.endsWith('.xlsx');
+    const isWord = file.name.endsWith('.docx');
 
-      const questions = json.slice(1).map(row => row[0]).filter(q => q);
+    if (!isExcel && !isWord) {
+      alert("Unsupported file type. Please upload a .xlsx or .docx file.");
+      return;
+    }
 
-      for (const question of questions) {
-        await submitQuestion(question);
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        const questions = json.slice(1).map(row => row[0]).filter(q => q);
+        for (const question of questions) {
+          await submitQuestion(question);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    if (isWord) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const res = await axios.post(`${BASE_URL}/upload_questions/`, formData);
+        const { questions, answers } = res.data;
+
+        questions.forEach((q, i) => {
+          const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: q, time: timestamp }]);
+
+          let botResponse = '';
+          for (const [fund, answer] of Object.entries(answers[i])) {
+            botResponse += `${fund}:
+${answer.answer || answer}\n`;
+          }
+
+          setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
+        });
+
+      } catch (err) {
+        console.error("❌ Word Upload Error:", err);
+        alert("Failed to process Word document.");
       }
-    };
-    reader.readAsArrayBuffer(file);
+    }
   };
 
   const submitQuestion = async (text) => {
@@ -110,7 +149,8 @@ export default function IRChatbot() {
 
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:\n${answer.answer || answer}\n`;
+        botResponse += `${fund}:
+${answer.answer || answer}\n`;
         if (answer.source) botResponse += `📄 Source: ${answer.source}\n`;
       }
 
@@ -130,22 +170,21 @@ export default function IRChatbot() {
   };
 
   const handleDownloadAnswers = async () => {
-    const fileInput = document.getElementById("excel-upload");
-    const file = fileInput.files[0];
-    if (!file) return alert("Please upload an Excel file first.");
+    if (!uploadedFile) return alert("Please upload a file first.");
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadedFile);
 
     try {
       const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
         responseType: "blob",
       });
 
+      const ext = uploadedFile.name.endsWith(".docx") ? "docx" : "xlsx";
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", "question_answers.xlsx");
+      link.setAttribute("download", `question_answers.${ext}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -198,7 +237,7 @@ export default function IRChatbot() {
             Upload Questions File
           </label>
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
-          <input id="excel-upload" type="file" accept=".xlsx" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <input id="excel-upload" type="file" accept=".xlsx, .docx" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
