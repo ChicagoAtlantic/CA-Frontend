@@ -86,12 +86,14 @@ ${answer.answer || answer}\n`;
     const file = event.target.files[0];
     if (!file) return;
     setUploadedFile(file);
-  
+    setUploadStatus(null);
+
     const isExcel = file.name.endsWith('.xlsx');
     const isWord = file.name.endsWith('.docx');
-  
-    if (!isExcel && !isWord) {
-      alert("Unsupported file type. Please upload a .xlsx or .docx file.");
+    const isPDF = file.name.endsWith('.pdf');
+
+    if (!isExcel && !isWord && !isPDF) {
+      alert("Unsupported file type. Please upload a .xlsx, .docx, or .pdf file.");
       return;
     }
   
@@ -156,7 +158,11 @@ ${answer.answer || answer}\n`;
         responseType: "blob",
       });
 
-      const ext = uploadedFile.name.endsWith(".docx") ? "docx" : "xlsx";
+      let ext = "xlsx";
+      if (uploadedFile.name.endsWith(".docx") || uploadedFile.name.endsWith(".pdf")) {
+        ext = "docx";
+      }
+      
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -211,10 +217,10 @@ ${answer.answer || answer}\n`;
       
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
-            Upload Questions (Excel or Word)
+            Upload Questions (Excel, Word, or PDF)
           </label>
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
-          <input id="excel-upload" type="file" accept=".xlsx, .docx" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
         {processingFile && (

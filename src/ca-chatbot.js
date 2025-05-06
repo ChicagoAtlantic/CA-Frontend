@@ -17,33 +17,42 @@ export default function IRChatbot() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
-
+  
     const currentQuery = query.trim();
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setLoading(true);
-
-    setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: currentQuery, time: timestamp }, { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }]);
+  
+    // Extract just the user's prior questions
+    const history = chatHistory.map(msg => msg.text);
+  
+    setChatHistory(prev => [
+      ...prev,
+      { sender: 'A Brilliant User', text: currentQuery, time: timestamp },
+      { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }
+    ]);
     setQuery('');
-
+  
     try {
-      const res = await axios.post(`${BASE_URL}/query`, { query: currentQuery });
+      const res = await axios.post(`${BASE_URL}/query`, {
+        query: currentQuery,
+        history: history
+      });
+  
       const responseObj = res.data.answers || { Default: res.data.answer };
-
+  
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:
-${answer.answer || answer}\n`;
+        botResponse += `${fund}:\n${answer.answer || answer}\n`;
         if (answer.source) {
           botResponse += `📄 Source: ${answer.source}\n`;
         }
       }
-
+  
       setChatHistory(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
         return updated;
       });
-
     } catch (err) {
       console.error('❌ Axios error:', err);
       setChatHistory(prev => {
@@ -55,6 +64,7 @@ ${answer.answer || answer}\n`;
       setLoading(false);
     }
   };
+  
 
   const handleDownloadChatLogs = async () => {
     try {
@@ -76,7 +86,10 @@ ${answer.answer || answer}\n`;
 
   const handleClearChat = () => {
     setChatHistory([]);
+    setUploadedFile(null);
+    setUploadStatus(null);
   };
+  
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
