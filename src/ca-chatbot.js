@@ -12,6 +12,7 @@ export default function IRChatbot() {
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [processingFile, setProcessingFile] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,31 +113,35 @@ ${answer.answer || answer}\n`;
     }
 
     if (isWord) {
+      setProcessingFile(true); // start showing message
+    
       const formData = new FormData();
       formData.append("file", file);
-
+    
       try {
         const res = await axios.post(`${BASE_URL}/upload_questions/`, formData);
         const { questions, answers } = res.data;
-
+    
         questions.forEach((q, i) => {
           const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: q, time: timestamp }]);
-
+    
           let botResponse = '';
           for (const [fund, answer] of Object.entries(answers[i])) {
-            botResponse += `${fund}:
-${answer.answer || answer}\n`;
+            botResponse += `${fund}:\n${answer.answer || answer}\n`;
           }
-
+    
           setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
         });
-
+    
       } catch (err) {
         console.error("❌ Word Upload Error:", err);
         alert("Failed to process Word document.");
+      } finally {
+        setProcessingFile(false); // hide message
       }
     }
+    
   };
 
   const submitQuestion = async (text) => {
@@ -194,6 +199,7 @@ ${answer.answer || answer}\n`;
     }
   };
 
+  // logo
   return (
     <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
       <div style={{
@@ -226,12 +232,12 @@ ${answer.answer || answer}\n`;
         }}>
           ChatCAG
         </h1>
-
+          {/* buttons */}
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button>
           <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
         </div>
-
+      
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions File
@@ -239,6 +245,12 @@ ${answer.answer || answer}\n`;
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
           <input id="excel-upload" type="file" accept=".xlsx, .docx" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
+
+        {processingFile && (
+        <p style={{ textAlign: 'center', fontStyle: 'italic', color: '#6b7280' }}>
+          Processing document...
+        </p>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
@@ -251,7 +263,7 @@ ${answer.answer || answer}\n`;
               }
             }}
             rows={2}
-            placeholder="Ask a question..."
+            placeholder="A thought-out question..."
             style={{
               width: '100%',
               border: '1px solid #d1d5db',
@@ -271,7 +283,7 @@ ${answer.answer || answer}\n`;
             cursor: 'pointer',
             opacity: loading ? 0.5 : 1
           }}>
-            {loading ? 'Thinking...' : 'Ask'}
+            {loading ? 'Thinking...' : 'Ask ChatCAG'}
           </button>
         </form>
 
@@ -316,6 +328,6 @@ const buttonStyle = {
   fontSize: '0.875rem',
   border: 'none',
   cursor: 'pointer',
-  marginBottom: '1rem',
-  width: '160px'
+  marginBottom: '0rem',
+  width: '4000px'
 };
