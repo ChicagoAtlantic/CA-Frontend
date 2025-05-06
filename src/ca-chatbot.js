@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
 
 const BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
@@ -13,6 +12,7 @@ export default function IRChatbot() {
   const chatEndRef = useRef(null);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processingFile, setProcessingFile] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -86,94 +86,67 @@ ${answer.answer || answer}\n`;
     const file = event.target.files[0];
     if (!file) return;
     setUploadedFile(file);
+    setUploadStatus(null);
 
     const isExcel = file.name.endsWith('.xlsx');
     const isWord = file.name.endsWith('.docx');
+    const isPDF = file.name.endsWith('.pdf');
 
-    if (!isExcel && !isWord) {
-      alert("Unsupported file type. Please upload a .xlsx or .docx file.");
+    if (!isExcel && !isWord && !isPDF) {
+      alert("Unsupported file type. Please upload a .xlsx, .docx, or .pdf file.");
       return;
     }
+  
+    setProcessingFile(true);
+    await new Promise(resolve => setTimeout(resolve, 50)); // allow spinner to render
+  
+    const formData = new FormData();
+    formData.append("file", file);
+  
+    try {
+      const res = await axios.post(`${BASE_URL}/upload_questions/`, formData);
+      setUploadStatus('success');
 
-    if (isExcel) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        const questions = json.slice(1).map(row => row[0]).filter(q => q);
-        for (const question of questions) {
-          await submitQuestion(question);
-        }
-      };
-      reader.readAsArrayBuffer(file);
-    }
-
-    if (isWord) {
-      setProcessingFile(true); // start showing message
-    
-      const formData = new FormData();
-      formData.append("file", file);
-    
-      try {
-        const res = await axios.post(`${BASE_URL}/upload_questions/`, formData);
-        const { questions, answers } = res.data;
-    
-        questions.forEach((q, i) => {
+      // If response is JSON with questions + answers, show them in chat
+      if (res.data?.questions && res.data?.answers) {
+        res.data.questions.forEach((q, i) => {
           const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: q, time: timestamp }]);
-    
+  
           let botResponse = '';
-          for (const [fund, answer] of Object.entries(answers[i])) {
+          for (const [fund, answer] of Object.entries(res.data.answers[i])) {
             botResponse += `${fund}:\n${answer.answer || answer}\n`;
           }
-    
+  
           setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
         });
-    
-      } catch (err) {
-        console.error("❌ Word Upload Error:", err);
-        alert("Failed to process Word document.");
-      } finally {
-        setProcessingFile(false); // hide message
       }
-    }
-    
-  };
-
-  const submitQuestion = async (text) => {
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text, time: timestamp }, { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }]);
-
-    try {
-      const res = await axios.post(`${BASE_URL}/query`, { query: text });
-      const responseObj = res.data.answers || { Default: res.data.answer };
-
-      let botResponse = '';
-      for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:
-${answer.answer || answer}\n`;
-        if (answer.source) botResponse += `📄 Source: ${answer.source}\n`;
-      }
-
-      setChatHistory(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
-        return updated;
-      });
+  
     } catch (err) {
-      console.error('❌ Axios error:', err);
-      setChatHistory(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1] = { sender: 'ChatCAG', text: 'Error fetching response.', time: timestamp };
-        return updated;
-      });
+      setUploadStatus('error');
+
+      // Only show error if it's actual JSON error (not blob response)
+      const contentType = err?.response?.headers?.['content-type'] || '';
+      if (contentType.includes("application/json")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const json = JSON.parse(reader.result);
+            alert(json.error || "Failed to process file.");
+          } catch {
+            alert("Unexpected error during file upload.");
+          }
+        };
+        reader.readAsText(err.response.data);
+      } else {
+        // Silently ignore if it was just a download trigger
+        console.warn("Caught blob response during upload, ignoring.");
+      }
+    } finally {
+      setProcessingFile(false);
     }
   };
-
+  
   const handleDownloadAnswers = async () => {
     if (!uploadedFile) return alert("Please upload a file first.");
 
@@ -185,7 +158,11 @@ ${answer.answer || answer}\n`;
         responseType: "blob",
       });
 
-      const ext = uploadedFile.name.endsWith(".docx") ? "docx" : "xlsx";
+      let ext = "xlsx";
+      if (uploadedFile.name.endsWith(".docx") || uploadedFile.name.endsWith(".pdf")) {
+        ext = "docx";
+      }
+      
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -240,10 +217,10 @@ ${answer.answer || answer}\n`;
       
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
-            Upload Questions File
+            Upload Questions (Excel, Word, or PDF)
           </label>
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
-          <input id="excel-upload" type="file" accept=".xlsx, .docx" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
         {processingFile && (
@@ -251,6 +228,17 @@ ${answer.answer || answer}\n`;
           Processing document...
         </p>
         )}
+        {uploadStatus === 'success' && (
+        <p style={{ textAlign: 'center', color: 'green' }}>
+          ✅ Document processed successfully.
+        </p>
+        )}
+        {uploadStatus === 'error' && (
+        <p style={{ textAlign: 'center', color: 'red' }}>
+          ❌ Failed to process the document.
+        </p>
+        )}
+
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
