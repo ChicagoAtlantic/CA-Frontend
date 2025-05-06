@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 
+const BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:8000'
+  : 'https://ir-backend-pov2.onrender.com';
 
 export default function IRChatbot() {
   const [query, setQuery] = useState('');
@@ -21,8 +24,7 @@ export default function IRChatbot() {
     setQuery('');
 
     try {
-      const res = await axios.post('https://ir-backend-pov2.onrender.com/query','http://localhost:8000/query', { query: currentQuery });
-
+      const res = await axios.post(`${BASE_URL}/query`, { query: currentQuery });
       const responseObj = res.data.answers || { Default: res.data.answer };
 
       let botResponse = '';
@@ -53,7 +55,7 @@ export default function IRChatbot() {
 
   const handleDownloadChatLogs = async () => {
     try {
-      const res = await axios.get('https://ir-backend-pov2.onrender.com/download_chat_logs', {
+      const res = await axios.get(`${BASE_URL}/download_chat_logs`, {
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -68,13 +70,11 @@ export default function IRChatbot() {
       alert('Failed to download chat logs.');
     }
   };
-  
 
   const handleClearChat = () => {
     setChatHistory([]);
   };
 
-  // Auto-scroll to bottom whenever chatHistory changes
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
@@ -82,7 +82,7 @@ export default function IRChatbot() {
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-  
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       const data = new Uint8Array(e.target.result);
@@ -90,30 +90,30 @@ export default function IRChatbot() {
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-  
-      const questions = json.slice(1).map(row => row[0]).filter(q => q); // skip header and empty rows
-  
+
+      const questions = json.slice(1).map(row => row[0]).filter(q => q);
+
       for (const question of questions) {
         await submitQuestion(question);
       }
     };
     reader.readAsArrayBuffer(file);
   };
-  
+
   const submitQuestion = async (text) => {
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text, time: timestamp }, { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }]);
-  
+
     try {
-      const res = await axios.post('http://localhost:8000/query', { query: text });
+      const res = await axios.post(`${BASE_URL}/query`, { query: text });
       const responseObj = res.data.answers || { Default: res.data.answer };
-  
+
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
         botResponse += `${fund}:\n${answer.answer || answer}\n`;
         if (answer.source) botResponse += `📄 Source: ${answer.source}\n`;
       }
-  
+
       setChatHistory(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
@@ -128,21 +128,20 @@ export default function IRChatbot() {
       });
     }
   };
-  
 
   const handleDownloadAnswers = async () => {
     const fileInput = document.getElementById("excel-upload");
     const file = fileInput.files[0];
     if (!file) return alert("Please upload an Excel file first.");
-  
+
     const formData = new FormData();
     formData.append("file", file);
-  
+
     try {
-      const res = await axios.post("http://localhost:8000/upload_questions/", formData, {
+      const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
         responseType: "blob",
       });
-  
+
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -155,8 +154,6 @@ export default function IRChatbot() {
       alert("Failed to download answers.");
     }
   };
-  
-
 
   return (
     <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
@@ -172,8 +169,7 @@ export default function IRChatbot() {
         gap: '1rem',
         height: '700px'
       }}>
-  
-        {/* Logo */}
+
         <div style={{ textAlign: 'center' }}>
           <img
             src="/CA Logo narrow.png"
@@ -181,8 +177,7 @@ export default function IRChatbot() {
             style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }}
           />
         </div>
-  
-        {/* Heading */}
+
         <h1 style={{
           fontSize: '1.875rem',
           fontWeight: 700,
@@ -192,95 +187,20 @@ export default function IRChatbot() {
         }}>
           ChatCAG
         </h1>
-  
-        {/* Buttons */}
-        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-          <button
-            onClick={handleDownloadChatLogs}
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#000000',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              border: 'none',
-              cursor: 'pointer',
-              marginBottom: '1rem',
-              width: '160px',   // <-- force equal width
-            }}
-          >
-            Download Chat Logs
-          </button>
-          <button
-            onClick={handleClearChat}
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#000000',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              border: 'none',
-              cursor: 'pointer',
-              marginBottom: '1rem',
-              width: '160px',   // <-- force equal width
-            }}
 
-          >
-            Clear Chat
-          </button>
-        </div>
-  
-        {/* Upload & Download Excel file buttons */}
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-          <label
-            htmlFor="excel-upload"
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#000000',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              border: 'none',
-              cursor: 'pointer',
-              marginBottom: '1rem',
-              width: '160px'
-            }}
-          >
+          <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button>
+          <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
+        </div>
+
+        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions File
           </label>
-          <button
-            onClick={handleDownloadAnswers}
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#000000',
-              color: 'white',
-              padding: '0.5rem 1rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              border: 'none',
-              cursor: 'pointer',
-              marginBottom: '1rem',
-              width: '160px'
-            }}
-          >
-            Download Answers
-          </button>
-          <input
-            id="excel-upload"
-            type="file"
-            accept=".xlsx"
-            onChange={handleFileUpload}
-            style={{ display: 'none' }}
-          />
+          <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
+          <input id="excel-upload" type="file" accept=".xlsx" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
-
-
-
-        {/* Ask box */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
             value={query}
@@ -302,25 +222,20 @@ export default function IRChatbot() {
               resize: 'none'
             }}
           />
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.5rem',
-              borderRadius: '0.5rem',
-              border: 'none',
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              opacity: loading ? 0.5 : 1
-            }}
-          >
+          <button type="submit" disabled={loading} style={{
+            backgroundColor: '#2563eb',
+            color: 'white',
+            padding: '0.5rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            opacity: loading ? 0.5 : 1
+          }}>
             {loading ? 'Thinking...' : 'Ask'}
           </button>
         </form>
-  
-        {/* Scrollable Chat History */}
+
         <div style={{
           border: '1px solid #d1d5db',
           backgroundColor: '#f9fafb',
@@ -351,4 +266,17 @@ export default function IRChatbot() {
       </div>
     </div>
   );
-}  
+}
+
+const buttonStyle = {
+  display: 'inline-block',
+  backgroundColor: '#000000',
+  color: 'white',
+  padding: '0.5rem 1rem',
+  borderRadius: '0.5rem',
+  fontSize: '0.875rem',
+  border: 'none',
+  cursor: 'pointer',
+  marginBottom: '1rem',
+  width: '160px'
+};
