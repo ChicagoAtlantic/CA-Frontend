@@ -13,6 +13,7 @@ export default function IRChatbot() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processingFile, setProcessingFile] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
+  const [downloading, setDownloading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -67,6 +68,8 @@ export default function IRChatbot() {
   
 
   const handleDownloadChatLogs = async () => {
+
+    setDownloading(true); // ⬅️ Start loading bar
     try {
       const res = await axios.get(`${BASE_URL}/download_chat_logs`, {
         responseType: 'blob'
@@ -81,9 +84,11 @@ export default function IRChatbot() {
     } catch (err) {
       console.error('Download error:', err);
       alert('Failed to download chat logs.');
+    } finally {
+      setDownloading(false); // ⬅️ End loading bar
     }
   };
-
+  
   const handleClearChat = () => {
     setChatHistory([]);
     setUploadedFile(null);
@@ -166,6 +171,7 @@ export default function IRChatbot() {
     const formData = new FormData();
     formData.append("file", uploadedFile);
 
+    setDownloading(true); // ⬅️ Start loading bar
     try {
       const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
         responseType: "blob",
@@ -186,8 +192,27 @@ export default function IRChatbot() {
     } catch (err) {
       console.error("Download Answers error:", err);
       alert("Failed to download answers.");
+    } finally {
+      setDownloading(false); // ⬅️ End loading bar
     }
   };
+
+  const loadingBarStyle = {
+    height: '4px',
+    background: 'linear-gradient(to right, #2563eb, #60a5fa)',
+    animation: 'loadingBar 1s infinite linear',
+    width: '100%'
+  };
+  
+  const globalStyle = document.createElement('style');
+  globalStyle.innerHTML = `
+    @keyframes loadingBar {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  `;
+  document.head.appendChild(globalStyle);
+  
 
   // logo
   return (
@@ -236,11 +261,32 @@ export default function IRChatbot() {
           <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
+
+{/* processing and download status bar animation */}
         {processingFile && (
-        <p style={{ textAlign: 'center', fontStyle: 'italic', color: '#6b7280' }}>
-          Processing document...
-        </p>
+        <div style={{ marginTop: '0.5rem' }}>
+          <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
+            <div style={loadingBarStyle}></div>
+          </div>
+          <p style={{ textAlign: 'center', color: '#6b7280', fontStyle: 'italic', marginTop: '0.25rem' }}>
+            Processing document...
+          </p>
+        </div>
         )}
+
+        {downloading && (
+        <div style={{ marginTop: '0.5rem' }}>
+          <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
+            <div style={loadingBarStyle}></div>
+          </div>
+          <p style={{ textAlign: 'center', color: '#6b7280', fontStyle: 'italic', marginTop: '0.25rem' }}>
+            Downloading answers...
+          </p>
+        </div>
+        )}
+
+
+
         {uploadStatus === 'success' && (
         <p style={{ textAlign: 'center', color: 'green' }}>
           ✅ Document processed successfully.
@@ -251,7 +297,6 @@ export default function IRChatbot() {
           ❌ Failed to process the document.
         </p>
         )}
-
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
