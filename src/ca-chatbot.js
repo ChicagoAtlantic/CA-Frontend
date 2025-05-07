@@ -44,9 +44,11 @@ export default function IRChatbot() {
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
         botResponse += `${fund}:\n${answer.answer || answer}\n`;
-        if (answer.source) {
-          botResponse += `📄 Source: ${answer.source}\n`;
-        }
+
+        //comment out if you don't want to show source and % match of document below:
+        // if (answer.source) {
+        //   botResponse += `📄 Source: ${answer.source}\n`;
+        // }
       }
   
       setChatHistory(prev => {
