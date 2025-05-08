@@ -43,13 +43,11 @@ export default function IRChatbot() {
   
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:\n${answer.answer || answer}\n`;
-
-        //comment out if you don't want to show source and % match of document below:
-        // if (answer.source) {
-        //   botResponse += `📄 Source: ${answer.source}\n`;
-        // }
+        if (typeof answer.answer === 'string' && answer.answer.trim()) {
+          botResponse += `${fund}:\n${answer.answer.trim()}\n`;
+        }
       }
+      
   
       setChatHistory(prev => {
         const updated = [...prev];
@@ -135,9 +133,11 @@ export default function IRChatbot() {
   
           let botResponse = '';
           for (const [fund, answer] of Object.entries(res.data.answers[i])) {
-            botResponse += `${fund}:\n${answer.answer || answer}\n`;
-          }
-  
+            const responseText = typeof answer === 'string' ? answer : (answer.answer || '');
+            if (responseText.trim()) {
+              botResponse += `${fund}:\n${responseText}\n`;
+            }
+                      } 
           setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
         });
       }
