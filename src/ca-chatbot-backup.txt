@@ -1,3 +1,5 @@
+// npm start
+
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
@@ -20,7 +22,14 @@ export default function IRChatbot() {
     if (!query.trim()) return;
   
     const currentQuery = query.trim();
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timestamp = new Date().toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
     setLoading(true);
   
     // Extract just the user's prior questions
@@ -43,13 +52,11 @@ export default function IRChatbot() {
   
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
-        botResponse += `${fund}:\n${answer.answer || answer}\n`;
-
-        //comment out if you don't want to show source and % match of document below:
-        // if (answer.source) {
-        //   botResponse += `📄 Source: ${answer.source}\n`;
-        // }
+        if (typeof answer.answer === 'string' && answer.answer.trim()) {
+          botResponse += `${fund}:\n${answer.answer.trim()}\n`;
+        }
       }
+      
   
       setChatHistory(prev => {
         const updated = [...prev];
@@ -135,9 +142,11 @@ export default function IRChatbot() {
   
           let botResponse = '';
           for (const [fund, answer] of Object.entries(res.data.answers[i])) {
-            botResponse += `${fund}:\n${answer.answer || answer}\n`;
-          }
-  
+            const responseText = typeof answer === 'string' ? answer : (answer.answer || '');
+            if (responseText.trim()) {
+              botResponse += `${fund}:\n${responseText}\n`;
+            }
+                      } 
           setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
         });
       }
@@ -250,11 +259,7 @@ export default function IRChatbot() {
           ChatCAG
         </h1>
           {/* buttons */}
-        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-          <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button>
-          <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
-        </div>
-      
+                
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions (Excel, Word, or PDF)
@@ -262,6 +267,14 @@ export default function IRChatbot() {
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
           <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
+
+        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+
+          {/* Temporarily removed "Download Chat Logs" button – can be re-enabled later */}
+          {/* <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button> */}
+          <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
+        </div>
+
 
 
 {/* processing and download status bar animation */}

@@ -1,3 +1,5 @@
+// npm start
+
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
@@ -20,7 +22,14 @@ export default function IRChatbot() {
     if (!query.trim()) return;
   
     const currentQuery = query.trim();
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timestamp = new Date().toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
     setLoading(true);
   
     // Extract just the user's prior questions
@@ -250,11 +259,7 @@ export default function IRChatbot() {
           ChatCAG
         </h1>
           {/* buttons */}
-        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-          <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button>
-          <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
-        </div>
-      
+                
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions (Excel, Word, or PDF)
@@ -262,6 +267,14 @@ export default function IRChatbot() {
           <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
           <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
+
+        <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+
+          {/* Temporarily removed "Download Chat Logs" button – can be re-enabled later */}
+          {/* <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button> */}
+          <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
+        </div>
+
 
 
 {/* processing and download status bar animation */}
