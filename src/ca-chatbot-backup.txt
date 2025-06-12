@@ -1,5 +1,3 @@
-// npm start
-
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
@@ -12,15 +10,70 @@ export default function IRChatbot() {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
-  const [uploadedFile, setUploadedFile] = useState(null);
   const [processingFile, setProcessingFile] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState(null); // 'success' | 'error' | null
+  const [uploadStatus, setUploadStatus] = useState(null);
   const [downloading, setDownloading] = useState(false);
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const isValid = file.name.endsWith('.xlsx') || file.name.endsWith('.docx') || file.name.endsWith('.pdf');
+    if (!isValid) {
+      alert("Unsupported file type. Please upload a .xlsx, .docx, or .pdf file.");
+      return;
+    }
+
+    setProcessingFile(true);
+    setUploadStatus(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
+        responseType: "blob",
+        headers: {
+          'x-api-key': 'ChicagoAtlanticOnly', // ✅ Injected here
+        },
+      });
+
+      const ext = file.name.endsWith(".docx") || file.name.endsWith(".pdf") ? "docx" : "xlsx";
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `question_answers.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setUploadStatus('success');
+    } catch (err) {
+      setUploadStatus('error');
+      const contentType = err?.response?.headers?.['content-type'] || '';
+      if (contentType.includes("application/json")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const json = JSON.parse(reader.result);
+            alert(json.error || "Failed to process file.");
+          } catch {
+            alert("Unexpected error during file upload.");
+          }
+        };
+        reader.readAsText(err.response.data);
+      } else {
+        console.warn("Caught blob response during upload, ignoring.");
+      }
+    } finally {
+      setProcessingFile(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
-  
+
     const currentQuery = query.trim();
     const timestamp = new Date().toLocaleString('en-US', {
       month: '2-digit',
@@ -31,33 +84,34 @@ export default function IRChatbot() {
     });
 
     setLoading(true);
-  
-    // Extract just the user's prior questions
     const history = chatHistory.map(msg => msg.text);
-  
+
     setChatHistory(prev => [
       ...prev,
       { sender: 'A Brilliant User', text: currentQuery, time: timestamp },
       { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }
     ]);
     setQuery('');
-  
+
     try {
       const res = await axios.post(`${BASE_URL}/query`, {
         query: currentQuery,
         history: history
+      }, {
+        headers: {
+          'x-api-key': 'ChicagoAtlanticOnly',
+        }
       });
-  
+
+
       const responseObj = res.data.answers || { Default: res.data.answer };
-  
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
         if (typeof answer.answer === 'string' && answer.answer.trim()) {
           botResponse += `${fund}:\n${answer.answer.trim()}\n`;
         }
       }
-      
-  
+
       setChatHistory(prev => {
         const updated = [...prev];
         updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
@@ -74,139 +128,15 @@ export default function IRChatbot() {
       setLoading(false);
     }
   };
-  
 
-  const handleDownloadChatLogs = async () => {
-
-    setDownloading(true); // ⬅️ Start loading bar
-    try {
-      const res = await axios.get(`${BASE_URL}/download_chat_logs`, {
-        responseType: 'blob'
-      });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'chat_logs.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Failed to download chat logs.');
-    } finally {
-      setDownloading(false); // ⬅️ End loading bar
-    }
-  };
-  
   const handleClearChat = () => {
     setChatHistory([]);
-    setUploadedFile(null);
     setUploadStatus(null);
   };
-  
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
-
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setUploadedFile(file);
-    setUploadStatus(null);
-
-    const isExcel = file.name.endsWith('.xlsx');
-    const isWord = file.name.endsWith('.docx');
-    const isPDF = file.name.endsWith('.pdf');
-
-    if (!isExcel && !isWord && !isPDF) {
-      alert("Unsupported file type. Please upload a .xlsx, .docx, or .pdf file.");
-      return;
-    }
-  
-    setProcessingFile(true);
-    await new Promise(resolve => setTimeout(resolve, 50)); // allow spinner to render
-  
-    const formData = new FormData();
-    formData.append("file", file);
-  
-    try {
-      const res = await axios.post(`${BASE_URL}/upload_questions/`, formData);
-      setUploadStatus('success');
-
-      // If response is JSON with questions + answers, show them in chat
-      if (res.data?.questions && res.data?.answers) {
-        res.data.questions.forEach((q, i) => {
-          const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setChatHistory(prev => [...prev, { sender: 'A Brilliant User', text: q, time: timestamp }]);
-  
-          let botResponse = '';
-          for (const [fund, answer] of Object.entries(res.data.answers[i])) {
-            const responseText = typeof answer === 'string' ? answer : (answer.answer || '');
-            if (responseText.trim()) {
-              botResponse += `${fund}:\n${responseText}\n`;
-            }
-                      } 
-          setChatHistory(prev => [...prev, { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp }]);
-        });
-      }
-  
-    } catch (err) {
-      setUploadStatus('error');
-
-      // Only show error if it's actual JSON error (not blob response)
-      const contentType = err?.response?.headers?.['content-type'] || '';
-      if (contentType.includes("application/json")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const json = JSON.parse(reader.result);
-            alert(json.error || "Failed to process file.");
-          } catch {
-            alert("Unexpected error during file upload.");
-          }
-        };
-        reader.readAsText(err.response.data);
-      } else {
-        // Silently ignore if it was just a download trigger
-        console.warn("Caught blob response during upload, ignoring.");
-      }
-    } finally {
-      setProcessingFile(false);
-    }
-  };
-  
-  const handleDownloadAnswers = async () => {
-    if (!uploadedFile) return alert("Please upload a file first.");
-
-    const formData = new FormData();
-    formData.append("file", uploadedFile);
-
-    setDownloading(true); // ⬅️ Start loading bar
-    try {
-      const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
-        responseType: "blob",
-      });
-
-      let ext = "xlsx";
-      if (uploadedFile.name.endsWith(".docx") || uploadedFile.name.endsWith(".pdf")) {
-        ext = "docx";
-      }
-      
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `question_answers.${ext}`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error("Download Answers error:", err);
-      alert("Failed to download answers.");
-    } finally {
-      setDownloading(false); // ⬅️ End loading bar
-    }
-  };
 
   const loadingBarStyle = {
     height: '4px',
@@ -214,7 +144,7 @@ export default function IRChatbot() {
     animation: 'loadingBar 1s infinite linear',
     width: '100%'
   };
-  
+
   const globalStyle = document.createElement('style');
   globalStyle.innerHTML = `
     @keyframes loadingBar {
@@ -223,9 +153,7 @@ export default function IRChatbot() {
     }
   `;
   document.head.appendChild(globalStyle);
-  
 
-  // logo
   return (
     <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
       <div style={{
@@ -240,77 +168,45 @@ export default function IRChatbot() {
         gap: '1rem',
         height: '700px'
       }}>
-
         <div style={{ textAlign: 'center' }}>
-          <img
-            src="/CA Logo narrow.png"
-            alt="Chicago Atlantic Logo"
-            style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }}
-          />
+          <img src="/CA Logo narrow.png" alt="Chicago Atlantic Logo"
+            style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }} />
         </div>
-
-        <h1 style={{
-          fontSize: '1.875rem',
-          fontWeight: 700,
-          textAlign: 'center',
-          color: 'black',
-          marginBottom: '1rem'
-        }}>
+        <h1 style={{ fontSize: '1.875rem', fontWeight: 700, textAlign: 'center', color: 'black', marginBottom: '1rem' }}>
           ChatCAG
         </h1>
-          {/* buttons */}
-                
+
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions (Excel, Word, or PDF)
           </label>
-          <button onClick={handleDownloadAnswers} style={buttonStyle}>Download Answers</button>
           <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
 
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-
-          {/* Temporarily removed "Download Chat Logs" button – can be re-enabled later */}
-          {/* <button onClick={handleDownloadChatLogs} style={buttonStyle}>Download Chat Logs</button> */}
           <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
         </div>
 
-
-
-{/* processing and download status bar animation */}
         {processingFile && (
-        <div style={{ marginTop: '0.5rem' }}>
-          <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
-            <div style={loadingBarStyle}></div>
+          <div style={{ marginTop: '0.5rem' }}>
+            <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
+              <div style={loadingBarStyle}></div>
+            </div>
+            <p style={{ textAlign: 'center', color: '#6b7280', fontStyle: 'italic', marginTop: '0.25rem' }}>
+              Processing and downloading answers...
+            </p>
           </div>
-          <p style={{ textAlign: 'center', color: '#6b7280', fontStyle: 'italic', marginTop: '0.25rem' }}>
-            Processing document...
-          </p>
-        </div>
         )}
-
-        {downloading && (
-        <div style={{ marginTop: '0.5rem' }}>
-          <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
-            <div style={loadingBarStyle}></div>
-          </div>
-          <p style={{ textAlign: 'center', color: '#6b7280', fontStyle: 'italic', marginTop: '0.25rem' }}>
-            Downloading answers...
-          </p>
-        </div>
-        )}
-
-
 
         {uploadStatus === 'success' && (
-        <p style={{ textAlign: 'center', color: 'green' }}>
-          ✅ Document processed successfully.
-        </p>
+          <p style={{ textAlign: 'center', color: 'green' }}>
+            ✅ Document processed and downloaded.
+          </p>
         )}
         {uploadStatus === 'error' && (
-        <p style={{ textAlign: 'center', color: 'red' }}>
-          ❌ Failed to process the document.
-        </p>
+          <p style={{ textAlign: 'center', color: 'red' }}>
+            ❌ Failed to process the document.
+          </p>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -324,7 +220,7 @@ export default function IRChatbot() {
               }
             }}
             rows={2}
-            placeholder="A thought-out question..."
+            placeholder="Ask a detailed question..."
             style={{
               width: '100%',
               border: '1px solid #d1d5db',
@@ -381,7 +277,7 @@ export default function IRChatbot() {
 }
 
 const buttonStyle = {
-  display: 'inline-block',
+  flex: 1,
   backgroundColor: '#000000',
   color: 'white',
   padding: '0.5rem 1rem',
@@ -389,6 +285,6 @@ const buttonStyle = {
   fontSize: '0.875rem',
   border: 'none',
   cursor: 'pointer',
-  marginBottom: '0rem',
-  width: '4000px'
+  textAlign: 'center'
 };
+

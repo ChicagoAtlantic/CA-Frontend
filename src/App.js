@@ -1,4 +1,4 @@
-import IRChatbot from './ca-chatbot';
+import IRChatbot from './ca-chatbot.js';
 
 function App() {
   return <IRChatbot />;

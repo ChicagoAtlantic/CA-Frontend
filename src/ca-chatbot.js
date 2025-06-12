@@ -1,3 +1,5 @@
+import { useMsal } from "@azure/msal-react";
+import { loginRequest } from "./authConfig";
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 
@@ -13,6 +15,44 @@ export default function IRChatbot() {
   const [processingFile, setProcessingFile] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [downloading, setDownloading] = useState(false);
+
+  //for login credentials authorization//////////////////
+  const { instance, accounts } = useMsal();
+  const email = accounts[0]?.username;
+  const handleLogin = () => {
+    instance.loginPopup(loginRequest).catch((e) => {
+      console.error("Login failed:", e);
+    });
+  };
+
+//All CAG employees
+  // useEffect(() => {
+  //   if (email && !email.endsWith("@chicagoatlantic.com")) {
+  //     alert("Access restricted to approved users.");
+  //     instance.logoutPopup();
+  //   }
+  // }, [email]);
+
+  useEffect(() => {
+    const allowedUsers = ["clee@chicagoatlantic.com",
+                      "tcappell@chicagoatlantic.com",
+                    "dkite@chicagoatlantic.com",
+                  "psack@chicagoatlantic.com",
+                "jmazarakis@chicagoatlantic.com",
+              "hkelly@chicagoatlantic.com",
+            "lkim@chicagoatlantic.com",
+          "gkim@chicagoatlantic.com",]; // Add others if needed
+
+    if (email && !allowedUsers.includes(email.toLowerCase())) {
+      alert("Access restricted to approved users only.");
+      instance.logoutPopup();
+    }
+  }, [email]);
+
+  useEffect(() => {
+  chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory]);
+//////////////////////////////////////////////////////
 
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
@@ -154,6 +194,17 @@ export default function IRChatbot() {
   `;
   document.head.appendChild(globalStyle);
 
+  if (!email) {
+    return (
+      <div style={{ textAlign: 'center', marginTop: '4rem' }}>
+        <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Sign in to access ChatCAG</h2>
+        <button onClick={handleLogin} style={buttonStyle}>
+          Login with Microsoft
+        </button>
+      </div>
+    );
+  }
+  //returns the component's visible UI — it's what renders on the page.//
   return (
     <div style={{ width: '90%', maxWidth: '600px', margin: '1rem auto', padding: '1rem' }}>
       <div style={{
@@ -168,6 +219,11 @@ export default function IRChatbot() {
         gap: '1rem',
         height: '700px'
       }}>
+
+        <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#4b5563' }}>
+        Signed in as: <strong>{email}</strong>
+        </p>
+
         <div style={{ textAlign: 'center' }}>
           <img src="/CA Logo narrow.png" alt="Chicago Atlantic Logo"
             style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }} />
