@@ -220,7 +220,7 @@ export default function IRChatbot() {
               }
             }}
             rows={2}
-            placeholder="A thought-out question..."
+            placeholder="Ask a detailed question..."
             style={{
               width: '100%',
               border: '1px solid #d1d5db',
