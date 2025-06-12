@@ -25,14 +25,15 @@ export default function IRChatbot() {
     });
   };
 
-//All CAG employees
-  // useEffect(() => {
-  //   if (email && !email.endsWith("@chicagoatlantic.com")) {
-  //     alert("Access restricted to approved users.");
-  //     instance.logoutPopup();
-  //   }
-  // }, [email]);
+// //All CAG employees
+//   useEffect(() => {
+//     if (email && !email.endsWith("@chicagoatlantic.com")) {
+//       alert("Access restricted to @chicagoatlantic.com users.");
+//       instance.logoutPopup();
+//     }
+//   }, [email]);
 
+//Specific Users only
   useEffect(() => {
     const allowedUsers = ["clee@chicagoatlantic.com",
                       "tcappell@chicagoatlantic.com",

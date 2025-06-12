@@ -35,7 +35,7 @@ export default function IRChatbot() {
 
 //Specific Users only
   useEffect(() => {
-    const allowedUsers = [
+    const allowedUsers = ["clee@chicagoatlantic.com",
                       "tcappell@chicagoatlantic.com",
                     "dkite@chicagoatlantic.com",
                   "psack@chicagoatlantic.com",
