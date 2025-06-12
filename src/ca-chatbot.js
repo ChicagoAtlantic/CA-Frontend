@@ -26,28 +26,38 @@ export default function IRChatbot() {
   };
 
 //All CAG employees
-  // useEffect(() => {
-  //   if (email && !email.endsWith("@chicagoatlantic.com")) {
-  //     alert("Access restricted to approved users.");
-  //     instance.logoutPopup();
-  //   }
-  // }, [email]);
-
   useEffect(() => {
-    const allowedUsers = ["clee@chicagoatlantic.com",
-                      "tcappell@chicagoatlantic.com",
-                    "dkite@chicagoatlantic.com",
-                  "psack@chicagoatlantic.com",
-                "jmazarakis@chicagoatlantic.com",
-              "hkelly@chicagoatlantic.com",
-            "lkim@chicagoatlantic.com",
-          "gkim@chicagoatlantic.com",]; // Add others if needed
-
-    if (email && !allowedUsers.includes(email.toLowerCase())) {
-      alert("Access restricted to approved users only.");
+    if (email && !email.endsWith("@chicagoatlantic.com")) {
+      alert("Access restricted to @chicagoatlantic.com users.");
       instance.logoutPopup();
     }
   }, [email]);
+
+//Specific Users only
+//   useEffect(() => {
+//     const allowedUsers = ["clee@chicagoatlantic.com",
+//                       "tcappell@chicagoatlantic.com",
+//                     "dkite@chicagoatlantic.com",
+//                   "psack@chicagoatlantic.com",
+//                 "jmazarakis@chicagoatlantic.com",
+//               "hkelly@chicagoatlantic.com",
+//             "lkim@chicagoatlantic.com",
+//           "gkim@chicagoatlantic.com",
+//         "hlarkin@chicagoatlantic.com",
+//       "kvargas@chicagoatlantic.com",
+//     "hgonzalez@chicagoatlantic.com",
+//   "kyucel@chicagoatlantic.com",
+// "mburge@chicagoatlantic.com",
+// "bfordon@chicagoatlantic.com",
+// "cmullins@chicagoatlantic.com",
+// "elukin@chicagoatlantic.com",
+// "bhealy@chicagoatlantic.com",]; // Add others if needed
+
+//     if (email && !allowedUsers.includes(email.toLowerCase())) {
+//       alert("Access restricted to approved users only.");
+//       instance.logoutPopup();
+//     }
+//   }, [email]);
 
   useEffect(() => {
   chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -136,7 +146,8 @@ export default function IRChatbot() {
     try {
       const res = await axios.post(`${BASE_URL}/query`, {
         query: currentQuery,
-        history: history
+        history: history,
+        email: email
       }, {
         headers: {
           'x-api-key': 'ChicagoAtlanticOnly',
