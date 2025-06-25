@@ -7,6 +7,26 @@ const BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:8000'
   : 'https://ir-backend-pov2.onrender.com';
 
+// Function to allow http urls to become clickable links
+function parseLinks(text) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (urlRegex.test(part)) {
+      // Remove trailing punctuation from the link
+      const match = part.match(/(https?:\/\/[^\s.,)]+)/);
+      const cleanUrl = match ? match[0] : part;
+      const trailing = part.slice(cleanUrl.length); // preserve punctuation like "."
+      return (
+        <span key={i}>
+          <a href={cleanUrl} target="_blank" rel="noopener noreferrer">{cleanUrl}</a>{trailing}
+        </span>
+      );
+    }
+    return part;
+  });
+}
+
+
 export default function IRChatbot() {
   const [query, setQuery] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
@@ -64,42 +84,52 @@ export default function IRChatbot() {
   }, [chatHistory]);
 //////////////////////////////////////////////////////
 
+  // Get the first file selected by the user from the input element
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
-    if (!file) return;
-
+    if (!file) return; // Exit if no file is selected
+    
+    // Check if the file extension is one of the supported types
     const isValid = file.name.endsWith('.xlsx') || file.name.endsWith('.docx') || file.name.endsWith('.pdf');
     if (!isValid) {
       alert("Unsupported file type. Please upload a .xlsx, .docx, or .pdf file.");
       return;
     }
-
+    
+    // Show that we are now processing the file (e.g., show a spinner or loading message)
     setProcessingFile(true);
-    setUploadStatus(null);
-
+    setUploadStatus(null); // Clear any previous success/failure messages
+    
+    // Create a "package" to send the file to the server
     const formData = new FormData();
     formData.append("file", file);
 
-    try {
+    // Send the file to the backend (server) so it can be processed
+    try { 
       const res = await axios.post(`${BASE_URL}/upload_questions/`, formData, {
-        responseType: "blob",
+        responseType: "blob", // We expect to get a file back (not plain text)
         headers: {
-          'x-api-key': 'ChicagoAtlanticOnly', // ✅ Injected here
+          'x-api-key': 'ChicagoAtlanticOnly', // A security code to identify this request
         },
       });
 
+      // Figure out what type of file we got back (Word or Excel)
       const ext = file.name.endsWith(".docx") || file.name.endsWith(".pdf") ? "docx" : "xlsx";
+      
+      // Create a downloadable link from the file we got back
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", `question_answers.${ext}`);
       document.body.appendChild(link);
-      link.click();
-      link.remove();
+      link.click(); // Pretend the user clicked the link to start the download
+      link.remove(); // Clean up
 
       setUploadStatus('success');
     } catch (err) {
       setUploadStatus('error');
+      
+      // If the server tried to send back an error message (in readable text form)
       const contentType = err?.response?.headers?.['content-type'] || '';
       if (contentType.includes("application/json")) {
         const reader = new FileReader();
@@ -113,7 +143,7 @@ export default function IRChatbot() {
         };
         reader.readAsText(err.response.data);
       } else {
-        console.warn("Caught blob response during upload, ignoring.");
+        console.warn("Caught blob response during upload, ignoring."); // If the error wasn’t readable text, just log it and move on
       }
     } finally {
       setProcessingFile(false);
@@ -121,11 +151,11 @@ export default function IRChatbot() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+    e.preventDefault(); // Stop the page from refreshing when user presses Enter
+    if (!query.trim()) return; // If input box is empty or just spaces, don’t do anything
 
-    const currentQuery = query.trim();
-    const timestamp = new Date().toLocaleString('en-US', {
+    const currentQuery = query.trim(); // Remove any extra spaces from the input
+    const timestamp = new Date().toLocaleString('en-US', { // Get the current date and time in readable format (MM/DD/YYYY HH:MM)
       month: '2-digit',
       day: '2-digit',
       year: 'numeric',
@@ -133,18 +163,18 @@ export default function IRChatbot() {
       minute: '2-digit'
     });
 
-    setLoading(true);
-    const history = chatHistory.map(msg => msg.text);
+    setLoading(true); // Show "Thinking..." instead of button so user knows it's working
+    const history = chatHistory.map(msg => msg.text); // Grab all past chat messages (just the text)
 
-    setChatHistory(prev => [
+    setChatHistory(prev => [ // Add the user’s question and a temporary “Thinking...” bot response to the chat windo
       ...prev,
       { sender: 'A Brilliant User', text: currentQuery, time: timestamp },
       { sender: 'ChatCAG', text: 'Thinking...', time: timestamp }
     ]);
-    setQuery('');
+    setQuery(''); // Clear the input box after submitting
 
     try {
-      const res = await axios.post(`${BASE_URL}/query`, {
+      const res = await axios.post(`${BASE_URL}/query`, { // Send the question to the backend, along with chat history and user's email
         query: currentQuery,
         history: history,
         email: email
@@ -155,44 +185,44 @@ export default function IRChatbot() {
       });
 
 
-      const responseObj = res.data.answers || { Default: res.data.answer };
+      const responseObj = res.data.answers || { Default: res.data.answer };   // Extract the response (might have multiple fund-specific answers)
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
         if (typeof answer.answer === 'string' && answer.answer.trim()) {
-          botResponse += `${fund}:\n${answer.answer.trim()}\n`;
+          botResponse += `${fund}:\n${answer.answer.trim()}\n`; // Build full response to show
         }
       }
 
-      setChatHistory(prev => {
+      setChatHistory(prev => {   // Replace the "Thinking..." placeholder with the actual bot answer
         const updated = [...prev];
         updated[updated.length - 1] = { sender: 'ChatCAG', text: botResponse.trim(), time: timestamp };
         return updated;
       });
     } catch (err) {
-      console.error('❌ Axios error:', err);
-      setChatHistory(prev => {
+      console.error('❌ Axios error:', err); // Log the error in case something goes wrong
+      setChatHistory(prev => { // Replace the "Thinking..." message with an error message
         const updated = [...prev];
         updated[updated.length - 1] = { sender: 'ChatCAG', text: 'Error fetching response.', time: timestamp };
         return updated;
       });
     } finally {
-      setLoading(false);
+      setLoading(false); // Turn off the "Thinking..." state
     }
   };
 
   const handleClearChat = () => {
-    setChatHistory([]);
-    setUploadStatus(null);
+    setChatHistory([]); // Wipe out the chat messages
+    setUploadStatus(null); // Reset file upload status too
   };
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); // Always scroll to the latest message
   }, [chatHistory]);
 
   const loadingBarStyle = {
     height: '4px',
-    background: 'linear-gradient(to right, #2563eb, #60a5fa)',
-    animation: 'loadingBar 1s infinite linear',
+    background: 'linear-gradient(to right, #2563eb, #60a5fa)', // Blue gradient
+    animation: 'loadingBar 1s infinite linear', // Moves across the bar over and over
     width: '100%'
   };
 
@@ -203,9 +233,9 @@ export default function IRChatbot() {
       100% { transform: translateX(100%); }
     }
   `;
-  document.head.appendChild(globalStyle);
+  document.head.appendChild(globalStyle); // then add the loading bar to the page
 
-  if (!email) {
+  if (!email) { //show the login screen if the user isn't already logged in
     return (
       <div style={{ textAlign: 'center', marginTop: '4rem' }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Sign in to access ChatCAG</h2>
@@ -230,11 +260,11 @@ export default function IRChatbot() {
         gap: '1rem',
         height: '700px'
       }}>
-
+{/* show's who is signed in */}
         <p style={{ textAlign: 'center', fontSize: '0.875rem', color: '#4b5563' }}>
-        Signed in as: <strong>{email}</strong>
+        Signed in as: <strong>{email}</strong> 
         </p>
-
+{/* logo and header */}
         <div style={{ textAlign: 'center' }}>
           <img src="/CA Logo narrow.png" alt="Chicago Atlantic Logo"
             style={{ height: '80px', maxWidth: '120px', display: 'block', margin: '0 auto' }} />
@@ -242,18 +272,18 @@ export default function IRChatbot() {
         <h1 style={{ fontSize: '1.875rem', fontWeight: 700, textAlign: 'center', color: 'black', marginBottom: '1rem' }}>
           ChatCAG
         </h1>
-
+{/* file upload */}
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <label htmlFor="excel-upload" style={buttonStyle}>
             Upload Questions (Excel, Word, or PDF)
           </label>
           <input id="excel-upload" type="file" accept=".xlsx, .docx, .pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
-
+{/* Clear chat */}
         <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '10px' }}>
           <button onClick={handleClearChat} style={buttonStyle}>Clear Chat</button>
         </div>
-
+{/* File upload status and loading indicator */}
         {processingFile && (
           <div style={{ marginTop: '0.5rem' }}>
             <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', overflow: 'hidden', borderRadius: '4px' }}>
@@ -275,7 +305,7 @@ export default function IRChatbot() {
             ❌ Failed to process the document.
           </p>
         )}
-
+{/* User Input Section */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           <textarea
             value={query}
@@ -310,7 +340,7 @@ export default function IRChatbot() {
             {loading ? 'Thinking...' : 'Ask ChatCAG'}
           </button>
         </form>
-
+{/* Chat message display box */}
         <div style={{
           border: '1px solid #d1d5db',
           backgroundColor: '#f9fafb',
@@ -332,7 +362,8 @@ export default function IRChatbot() {
                 <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
                   [{item.time}]
                 </span>: {' '}
-                {item.text}
+                {parseLinks(item.text)}
+
               </div>
             ))
           )}
@@ -343,6 +374,7 @@ export default function IRChatbot() {
   );
 }
 
+// Style for all buttons
 const buttonStyle = {
   flex: 1,
   backgroundColor: '#000000',
