@@ -74,7 +74,8 @@ export default function IRChatbot() {
 "cmullins@chicagoatlantic.com",
 "elukin@chicagoatlantic.com",
 "bhealy@chicagoatlantic.com",
-"alovitt@chicagoatlantic.com",]; // Add others if needed
+"alovitt@chicagoatlantic.com",
+"egoldfarb@chicagoatlantic.com"]; // Add others if needed
 
     if (email && !allowedUsers.includes(email.toLowerCase())) {
       alert("Access restricted to approved users only.");
