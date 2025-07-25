@@ -107,6 +107,7 @@ export default function IRChatbot() {
     // Create a "package" to send the file to the server
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("email", email);
 
     // Send the file to the backend (server) so it can be processed
     try { 
@@ -193,9 +194,18 @@ export default function IRChatbot() {
       let botResponse = '';
       for (const [fund, answer] of Object.entries(responseObj)) {
         if (typeof answer.answer === 'string' && answer.answer.trim()) {
-          botResponse += `${fund}:\n${answer.answer.trim()}\n`; // Build full response to show
+          botResponse += `${fund}:\n${answer.answer.trim()}`;
+
+          if (answer.source) {
+            const sourceLines = answer.source.split('\n');
+            const sourceList = sourceLines.map((src) => `• ${src}`).join('\n');
+            botResponse += `\n\nSources:\n${sourceList}`;
+          }
+
+          botResponse += '\n\n'; // Add spacing between fund sections
         }
       }
+
 
       setChatHistory(prev => {   // Replace the "Thinking..." placeholder with the actual bot answer
         const updated = [...prev];
